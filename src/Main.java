@@ -9,14 +9,15 @@
  * 4. [Nome do Aluno 4] - Número: [Número]
  */
 
+import modelo.Amigo;
 import modelo.Categoria;
 import modelo.Filme;
 import modelo.GestorFilmes;
 import modelo.Localizacao;
+
 import java.time.LocalDate;
 
 public class Main {
-    // DICA INTELLIJ: Escreve psvm e carrega no Tab para gerar o main automaticamente
     public static void main(String[] args) {
         
         // 1. Criar o gestor
@@ -26,7 +27,7 @@ public class Main {
         Localizacao loc1 = new Localizacao("Prateleira Quarto", "Fila A");
         Localizacao loc2 = new Localizacao("Disco Externo", "Pasta Filmes 2026");
         
-        // 3. Criar filmes de teste (usando LocalDate.now() para a data atual)
+        // 3. Criar filmes de teste
         Filme filme1 = new Filme("O Padrinho", "Francis Ford Coppola", 1972, true, 
                                  Categoria.DRAMA, loc1, LocalDate.now());
                                  
@@ -37,7 +38,25 @@ public class Main {
         gestor.adicionarFilme(filme1);
         gestor.adicionarFilme(filme2);
         
-        // 5. Testar a saída na consola
+        // 5. Testar amigos e empréstimos
+        Amigo amigo1 = new Amigo("Carlos Silva", "912345678");
+        gestor.registarAmigo(amigo1);
+
+        System.out.println("--- Coleção Inicial ---");
+        gestor.listarFilmes();
+
+        System.out.println("\n--- Realizar Empréstimo ---");
+        gestor.emprestarFilme(filme1, amigo1);
+        gestor.listarHistoricoEmprestimos();
+
+        System.out.println("\n--- Estado após empréstimo ---");
+        gestor.listarFilmes();
+
+        System.out.println("\n--- Devolver Filme ---");
+        gestor.devolverFilme(filme1);
+        gestor.listarHistoricoEmprestimos();
+
+        System.out.println("\n--- Estado final após devolução ---");
         gestor.listarFilmes();
     }
 }
