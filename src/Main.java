@@ -1,30 +1,43 @@
+/*
+ * Trabalho Prático POO 2026/2027 - Tema T04: Os meus filmes
+ * Grupo: G14
+ * 
+ * Elementos do Grupo:
+ * 1. Tiago Cunha - Número: 54272
+ * 2. [Nome do Aluno 2] - Número: [Número]
+ * 3. [Nome do Aluno 3] - Número: [Número]
+ * 4. [Nome do Aluno 4] - Número: [Número]
+ */
+
 import modelo.Categoria;
 import modelo.Filme;
+import modelo.GestorFilmes;
 import modelo.Localizacao;
-
 import java.time.LocalDate;
 
-/**
- * Classe principal para testes do modelo de dados.
- * Grupo G14 - Tiago Cunha (54272)
- */
 public class Main {
+    // DICA INTELLIJ: Escreve psvm e carrega no Tab para gerar o main automaticamente
     public static void main(String[] args) {
-        Localizacao loc = new Localizacao("Sala", "Prateleira 3");
-        Filme filme = new Filme(
-                "Inception",
-                "Christopher Nolan",
-                2010,
-                true,
-                Categoria.FICCAO_CIENTIFICA,
-                loc,
-                LocalDate.of(2023, 5, 20)
-        );
-
-        System.out.println("=== Teste do Modelo ===");
-        System.out.println(filme);
-
-        filme.setEstaEmprestado(true);
-        System.out.println("Após empréstimo: " + filme);
+        
+        // 1. Criar o gestor
+        GestorFilmes gestor = new GestorFilmes();
+        
+        // 2. Criar localizações de teste
+        Localizacao loc1 = new Localizacao("Prateleira Quarto", "Fila A");
+        Localizacao loc2 = new Localizacao("Disco Externo", "Pasta Filmes 2026");
+        
+        // 3. Criar filmes de teste (usando LocalDate.now() para a data atual)
+        Filme filme1 = new Filme("O Padrinho", "Francis Ford Coppola", 1972, true, 
+                                 Categoria.DRAMA, loc1, LocalDate.now());
+                                 
+        Filme filme2 = new Filme("Matrix", "Wachowskis", 1999, false, 
+                                 Categoria.FICCAO_CIENTIFICA, loc2, LocalDate.now());
+        
+        // 4. Adicionar ao gestor
+        gestor.adicionarFilme(filme1);
+        gestor.adicionarFilme(filme2);
+        
+        // 5. Testar a saída na consola
+        gestor.listarFilmes();
     }
 }
