@@ -8,6 +8,8 @@ import java.io.Serializable;
  * Aluno: Tiago Cunha (54272)
  */
 public class Localizacao implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
     
     private String espaco; // ex: "Sala", "Quarto", "Disco Externo 1"
     private String detalhe; // ex: "Prateleira 3", "Pasta Filmes/2026"

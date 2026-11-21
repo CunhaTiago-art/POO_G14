@@ -5,58 +5,57 @@
  * Elementos do Grupo:
  * 1. Tiago Cunha - Número: 54272
  * 2. [Nome do Aluno 2] - Número: [Número]
- * 3. [Nome do Aluno 3] - Número: [Número]
+ * 3. [João Leitão] - Número: 55193
  * 4. [Nome do Aluno 4] - Número: [Número]
  */
 
-import modelo.Amigo;
-import modelo.Categoria;
-import modelo.Filme;
+import dados.DadosIniciais;
+import dados.GestorDados;
+import dados.RelatorioExport;
 import modelo.GestorFilmes;
-import modelo.Localizacao;
 
-import java.time.LocalDate;
+import java.io.File;
+import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) {
-        
-        // 1. Criar o gestor
-        GestorFilmes gestor = new GestorFilmes();
-        
-        // 2. Criar localizações de teste
-        Localizacao loc1 = new Localizacao("Prateleira Quarto", "Fila A");
-        Localizacao loc2 = new Localizacao("Disco Externo", "Pasta Filmes 2026");
-        
-        // 3. Criar filmes de teste
-        Filme filme1 = new Filme("O Padrinho", "Francis Ford Coppola", 1972, true, 
-                                 Categoria.DRAMA, loc1, LocalDate.now());
-                                 
-        Filme filme2 = new Filme("Matrix", "Wachowskis", 1999, false, 
-                                 Categoria.FICCAO_CIENTIFICA, loc2, LocalDate.now());
-        
-        // 4. Adicionar ao gestor
-        gestor.adicionarFilme(filme1);
-        gestor.adicionarFilme(filme2);
-        
-        // 5. Testar amigos e empréstimos
-        Amigo amigo1 = new Amigo("Carlos Silva", "912345678");
-        gestor.registarAmigo(amigo1);
 
-        System.out.println("--- Coleção Inicial ---");
-        gestor.listarFilmes();
+        // 1. Carregar os dados guardados
+        GestorDados dados = new GestorDados();
+        GestorFilmes gestor;
+        try {
+            if (dados.existeFicheiro()) {
+                System.out.println("A carregar dados de " + dados.getFicheiro().getAbsolutePath());
+                gestor = dados.carregar();
+            } else {
+                // 2. Primeira execução: começar com dados de exemplo
+                System.out.println("Primeira execução: a criar dados de exemplo.");
+                gestor = DadosIniciais.criar();
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Não foi possível ler os dados (" + e.getMessage() + "). A usar dados de exemplo.");
+            gestor = DadosIniciais.criar();
+        }
 
-        System.out.println("\n--- Realizar Empréstimo ---");
-        gestor.emprestarFilme(filme1, amigo1);
-        gestor.listarHistoricoEmprestimos();
+        // 3. Mostrar o relatório na consola
+        System.out.println();
+        System.out.println(RelatorioExport.gerarTexto(gestor));
 
-        System.out.println("\n--- Estado após empréstimo ---");
-        gestor.listarFilmes();
+        // 4. Exportar o relatório para um ficheiro .txt
+        File relatorio = new File(RelatorioExport.NOME_FICHEIRO);
+        try {
+            RelatorioExport.exportar(gestor, relatorio);
+            System.out.println("Relatório exportado para " + relatorio.getAbsolutePath());
+        } catch (IOException e) {
+            System.out.println("Erro ao exportar o relatório: " + e.getMessage());
+        }
 
-        System.out.println("\n--- Devolver Filme ---");
-        gestor.devolverFilme(filme1);
-        gestor.listarHistoricoEmprestimos();
-
-        System.out.println("\n--- Estado final após devolução ---");
-        gestor.listarFilmes();
+        // 5. Guardar tudo antes de sair
+        try {
+            dados.guardar(gestor);
+            System.out.println("Dados guardados em " + dados.getFicheiro().getAbsolutePath());
+        } catch (IOException e) {
+            System.out.println("Erro ao guardar os dados: " + e.getMessage());
+        }
     }
 }

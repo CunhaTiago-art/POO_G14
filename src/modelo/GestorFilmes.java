@@ -3,20 +3,32 @@ package modelo;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Classe que gere a coleção de filmes, amigos e empréstimos.
- * Implementa Serializable para permitir a persistência completa dos dados.
+ * Classe central da aplicação (Parte 3).
+ * Agrega os filmes, amigos, empréstimos e movimentos (aquisições/perdas)
+ * e garante as regras de negócio entre eles.
+ *
+ * Não escreve nada na consola: quando uma operação não é possível,
+ * lança uma exceção com a mensagem de erro. Quem chama (Main ou JavaFX)
+ * decide como a mostrar ao utilizador.
+ *  - IllegalArgumentException -> os dados recebidos são inválidos
+ *  - IllegalStateException    -> a operação não é possível no estado atual
+ *
+ * Implementa Serializable para ser gravada inteira pelo GestorDados.
  */
 public class GestorFilmes implements Serializable {
-    
+
+    private static final long serialVersionUID = 1L;
+
     private List<Filme> meusFilmes;
     private List<Emprestimo> historicoEmprestimos;
     private List<Amigo> meusAmigos;
     private List<RegistoMovimento> movimentos;
 
-    
     public GestorFilmes() {
         this.meusFilmes = new ArrayList<>();
         this.historicoEmprestimos = new ArrayList<>();
@@ -24,113 +36,213 @@ public class GestorFilmes implements Serializable {
         this.movimentos = new ArrayList<>();
     }
 
-    // Gestão de Filmes
+    // =====================================================================
+    // Filmes
+    // =====================================================================
+
     public void adicionarFilme(Filme filme) {
-        if (filme != null) {
-            meusFilmes.add(filme);
-        }
-    }
-
-    // Gestão de Amigos
-    public void registarAmigo(Amigo amigo) {
-        if (amigo != null && !meusAmigos.contains(amigo)) {
-            meusAmigos.add(amigo);
-        }
-    }
-
-    // Gestão de Empréstimos
-    public boolean emprestarFilme(Filme filme, Amigo amigo) {
-        if (filme == null || amigo == null) {
-            System.out.println("Filme ou amigo inválido.");
-            return false;
-        }
-
-        if (filme.isEstaEmprestado()) {
-            System.out.println("O filme '" + filme.getTitulo() + "' já se encontra emprestado.");
-            return false;
-        }
-
-        // Se o amigo ainda não estiver registado, adiciona-o automaticamente
-        if (!meusAmigos.contains(amigo)) {
-            registarAmigo(amigo);
-        }
-
-        filme.setEstaEmprestado(true);
-        Emprestimo novoEmprestimo = new Emprestimo(filme, amigo);
-        historicoEmprestimos.add(novoEmprestimo);
-        return true;
-    }
-
-    public boolean devolverFilme(Filme filme) {
         if (filme == null) {
+            throw new IllegalArgumentException("O filme é obrigatório.");
+        }
+        if (meusFilmes.contains(filme)) {
+            throw new IllegalStateException("Este filme já está na coleção.");
+        }
+        if (existeFilme(filme.getTitulo(), filme.getAnoLancamento())) {
+            throw new IllegalStateException("Já existe o filme '" + filme.getTitulo()
+                    + "' (" + filme.getAnoLancamento() + ") na coleção.");
+        }
+        meusFilmes.add(filme);
+    }
+
+    // Adiciona o filme e regista logo a aquisição (preço e local de compra)
+    public void adicionarFilme(Filme filme, double preco, String local) {
+        adicionarFilme(filme);
+        LocalDate data = filme.getDataAquisicao() != null ? filme.getDataAquisicao() : LocalDate.now();
+        movimentos.add(RegistoMovimento.aquisicao(filme, data, preco, local));
+    }
+
+    // Remove o filme da coleção. Um filme emprestado não pode ser removido.
+    // Os empréstimos e movimentos antigos ficam no histórico.
+    public void removerFilme(Filme filme) {
+        verificarFilmeNaColecao(filme);
+        if (filme.isEstaEmprestado()) {
+            throw new IllegalStateException("O filme '" + filme.getTitulo()
+                    + "' está emprestado e não pode ser removido.");
+        }
+        meusFilmes.remove(filme);
+    }
+
+    public boolean existeFilme(String titulo, int ano) {
+        if (titulo == null) {
             return false;
         }
-
-        // Procurar o empréstimo ativo correspondente a este filme
-        for (Emprestimo e : historicoEmprestimos) {
-            if (e.getFilme().equals(filme) && e.isAtivo()) {
-                e.setDataDevolucao(LocalDate.now());
-                filme.setEstaEmprestado(false);
+        for (Filme f : meusFilmes) {
+            if (f.getTitulo() != null && f.getTitulo().equalsIgnoreCase(titulo.trim())
+                    && f.getAnoLancamento() == ano) {
                 return true;
             }
         }
-
-        System.out.println("Não foi encontrado nenhum empréstimo ativo para o filme: " + filme.getTitulo());
         return false;
     }
 
-    // Listagens para consola
-    public void listarFilmes() {
-        if (meusFilmes.isEmpty()) {
-            System.out.println("A tua coleção de filmes está vazia.");
-        } else {
-            System.out.println("--- Os Meus Filmes ---");
-            for (Filme f : meusFilmes) {
-                System.out.println(f);
-            }
-        }
+    // =====================================================================
+    // Pesquisas (devolvem listas novas; a coleção não é alterada)
+    // =====================================================================
+
+    public List<Filme> pesquisarPorTitulo(String texto) {
+        String procura = normalizar(texto);
+        return meusFilmes.stream()
+                .filter(f -> normalizar(f.getTitulo()).contains(procura))
+                .collect(Collectors.toList());
     }
 
-    public void listarAmigos() {
-        if (meusAmigos.isEmpty()) {
-            System.out.println("Nenhum amigo registado.");
-        } else {
-            System.out.println("--- Lista de Amigos ---");
-            for (Amigo a : meusAmigos) {
-                System.out.println(a);
-            }
-        }
+    public List<Filme> pesquisarPorRealizador(String texto) {
+        String procura = normalizar(texto);
+        return meusFilmes.stream()
+                .filter(f -> normalizar(f.getRealizador()).contains(procura))
+                .collect(Collectors.toList());
     }
 
-    public void listarHistoricoEmprestimos() {
-        if (historicoEmprestimos.isEmpty()) {
-            System.out.println("Nenhum registo no histórico de empréstimos.");
-        } else {
-            System.out.println("--- Histórico de Empréstimos ---");
-            for (Emprestimo emp : historicoEmprestimos) {
-                System.out.println(emp);
-            }
-        }
+    public List<Filme> pesquisarPorCategoria(Categoria categoria) {
+        return meusFilmes.stream()
+                .filter(f -> f.getCategoria() == categoria)
+                .collect(Collectors.toList());
     }
 
-    // empréstimos com prazo, alertas, aquisições e perdas
-    public boolean emprestarFilme(Filme filme, Amigo amigo, LocalDate dataPrevistaDevolucao) {
-        if (filme == null || amigo == null) {
-            System.out.println("Filme ou amigo inválido.");
-            return false;
+    public List<Filme> getFilmesDisponiveis() {
+        return meusFilmes.stream()
+                .filter(f -> !f.isEstaEmprestado() && !isPerdido(f))
+                .collect(Collectors.toList());
+    }
+
+    public List<Filme> getFilmesEmprestados() {
+        return meusFilmes.stream()
+                .filter(Filme::isEstaEmprestado)
+                .collect(Collectors.toList());
+    }
+
+    public List<Filme> getFilmesPerdidos() {
+        return meusFilmes.stream()
+                .filter(this::isPerdido)
+                .collect(Collectors.toList());
+    }
+
+    // Um filme está perdido se existir um movimento de PERDA para ele
+    public boolean isPerdido(Filme filme) {
+        for (RegistoMovimento m : movimentos) {
+            if (m.getTipo() == TipoMovimento.PERDA && m.getFilme() == filme) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // =====================================================================
+    // Amigos
+    // =====================================================================
+
+    public void registarAmigo(Amigo amigo) {
+        if (amigo == null) {
+            throw new IllegalArgumentException("O amigo é obrigatório.");
+        }
+        if (meusAmigos.contains(amigo)) {
+            return; // já está registado, não há nada a fazer
+        }
+        if (procurarAmigo(amigo.getNome()) != null) {
+            throw new IllegalStateException("Já existe um amigo com o nome '" + amigo.getNome() + "'.");
+        }
+        meusAmigos.add(amigo);
+    }
+
+    // Um amigo com empréstimos por devolver não pode ser removido
+    public void removerAmigo(Amigo amigo) {
+        if (amigo == null || !meusAmigos.contains(amigo)) {
+            throw new IllegalArgumentException("Esse amigo não está registado.");
+        }
+        if (amigo.contarEmprestimosAtivos() > 0) {
+            throw new IllegalStateException(amigo.getNome() + " ainda tem filmes por devolver.");
+        }
+        meusAmigos.remove(amigo);
+    }
+
+    // Devolve o amigo com esse nome (sem distinguir maiúsculas) ou null
+    public Amigo procurarAmigo(String nome) {
+        if (nome == null) {
+            return null;
+        }
+        for (Amigo a : meusAmigos) {
+            if (a.getNome().equalsIgnoreCase(nome.trim())) {
+                return a;
+            }
+        }
+        return null;
+    }
+
+    // =====================================================================
+    // Empréstimos
+    // =====================================================================
+
+    // Empréstimo com o prazo por omissão (14 dias)
+    public void emprestarFilme(Filme filme, Amigo amigo) {
+        emprestarFilme(filme, amigo, LocalDate.now().plusDays(Emprestimo.PRAZO_POR_DEFEITO_DIAS));
+    }
+
+    // Empréstimo feito hoje, com data prevista de devolução escolhida
+    public void emprestarFilme(Filme filme, Amigo amigo, LocalDate dataPrevistaDevolucao) {
+        if (dataPrevistaDevolucao == null || dataPrevistaDevolucao.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("A data prevista de devolução não pode ser anterior a hoje.");
+        }
+        emprestarFilme(filme, amigo, LocalDate.now(), dataPrevistaDevolucao);
+    }
+
+    // Empréstimo com todas as datas escolhidas.
+    // Permite registar um empréstimo feito no passado (ex.: antes de usar a aplicação).
+    public void emprestarFilme(Filme filme, Amigo amigo, LocalDate dataEmprestimo, LocalDate dataPrevistaDevolucao) {
+        verificarFilmeNaColecao(filme);
+        if (amigo == null) {
+            throw new IllegalArgumentException("O amigo é obrigatório.");
+        }
+        if (dataEmprestimo == null || dataEmprestimo.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("A data do empréstimo não pode ser no futuro.");
         }
         if (filme.isEstaEmprestado()) {
-            System.out.println("O filme '" + filme.getTitulo() + "' já se encontra emprestado.");
-            return false;
+            throw new IllegalStateException("O filme '" + filme.getTitulo() + "' já se encontra emprestado.");
         }
-        if (dataPrevistaDevolucao == null || dataPrevistaDevolucao.isBefore(LocalDate.now())) {
-            System.out.println("Data prevista de devolução inválida.");
-            return false;
+        if (isPerdido(filme)) {
+            throw new IllegalStateException("O filme '" + filme.getTitulo() + "' está registado como perdido.");
         }
-        registarAmigo(amigo);
+
+        registarAmigo(amigo); // se ainda não estiver registado, fica registado
+
+        // O construtor do Emprestimo valida que a data prevista não é anterior à do empréstimo
+        Emprestimo novo = new Emprestimo(filme, amigo, dataEmprestimo, dataPrevistaDevolucao);
+        historicoEmprestimos.add(novo);
         filme.setEstaEmprestado(true);
-        historicoEmprestimos.add(new Emprestimo(filme, amigo, dataPrevistaDevolucao));
-        return true;
+    }
+
+    // Devolução com a data de hoje
+    public void devolverFilme(Filme filme) {
+        devolverFilme(filme, LocalDate.now());
+    }
+
+    public void devolverFilme(Filme filme, LocalDate data) {
+        Emprestimo ativo = getEmprestimoAtivo(filme);
+        if (ativo == null) {
+            throw new IllegalStateException("O filme '" + (filme != null ? filme.getTitulo() : "?")
+                    + "' não está emprestado.");
+        }
+        ativo.devolver(data); // valida a data e fecha o empréstimo
+        filme.setEstaEmprestado(false);
+    }
+
+    // Devolve o empréstimo por devolver desse filme, ou null se não houver
+    public Emprestimo getEmprestimoAtivo(Filme filme) {
+        for (Emprestimo e : historicoEmprestimos) {
+            if (e.getFilme() == filme && e.isAtivo()) {
+                return e;
+            }
+        }
+        return null;
     }
 
     public List<Emprestimo> getEmprestimosAtivos() {
@@ -145,41 +257,74 @@ public class GestorFilmes implements Serializable {
         return EstatisticasEmprestimos.gerarAlertas(historicoEmprestimos);
     }
 
+    public Amigo getAmigoComMaisEmprestimos() {
+        return EstatisticasEmprestimos.amigoComMaisEmprestimos(historicoEmprestimos);
+    }
+
+    // =====================================================================
+    // Aquisições e perdas
+    // =====================================================================
+
     public void registarAquisicao(Filme filme, LocalDate data, double preco, String local) {
+        verificarFilmeNaColecao(filme);
         movimentos.add(RegistoMovimento.aquisicao(filme, data, preco, local));
     }
 
+    // Se o filme estava emprestado (o amigo perdeu-o), o empréstimo é fechado
+    // na data da perda, para não ficar eternamente "em atraso".
     public void registarPerda(Filme filme, LocalDate data, String motivo) {
-        movimentos.add(RegistoMovimento.perda(filme, data, motivo));
-    }
-
-    public List<RegistoMovimento> getMovimentos() {
-        return movimentos;
+        verificarFilmeNaColecao(filme);
+        if (isPerdido(filme)) {
+            throw new IllegalStateException("O filme '" + filme.getTitulo() + "' já está registado como perdido.");
+        }
+        RegistoMovimento perda = RegistoMovimento.perda(filme, data, motivo); // valida a data
+        Emprestimo ativo = getEmprestimoAtivo(filme);
+        if (ativo != null) {
+            ativo.devolver(data);
+            filme.setEstaEmprestado(false);
+        }
+        movimentos.add(perda);
     }
 
     public double getTotalGastoAquisicoes() {
         return EstatisticasEmprestimos.totalGastoAquisicoes(movimentos);
     }
 
-    public void listarMovimentos() {
-        if (movimentos.isEmpty()) {
-            System.out.println("Nenhuma aquisição ou perda registada.");
-        } else {
-            System.out.println("--- Aquisições e Perdas ---");
-            movimentos.forEach(System.out::println);
-        }
-    }
-    
-    // Getters
+    // =====================================================================
+    // Getters (listas só de leitura: alterações têm de passar pelo gestor)
+    // =====================================================================
+
     public List<Filme> getMeusFilmes() {
-        return meusFilmes;
+        return Collections.unmodifiableList(meusFilmes);
     }
 
     public List<Emprestimo> getHistoricoEmprestimos() {
-        return historicoEmprestimos;
+        return Collections.unmodifiableList(historicoEmprestimos);
     }
 
     public List<Amigo> getMeusAmigos() {
-        return meusAmigos;
+        return Collections.unmodifiableList(meusAmigos);
+    }
+
+    public List<RegistoMovimento> getMovimentos() {
+        return Collections.unmodifiableList(movimentos);
+    }
+
+    // =====================================================================
+    // Métodos auxiliares (privados)
+    // =====================================================================
+
+    private void verificarFilmeNaColecao(Filme filme) {
+        if (filme == null) {
+            throw new IllegalArgumentException("O filme é obrigatório.");
+        }
+        if (!meusFilmes.contains(filme)) {
+            throw new IllegalArgumentException("O filme '" + filme.getTitulo() + "' não pertence à coleção.");
+        }
+    }
+
+    // Para pesquisas: ignora maiúsculas/minúsculas e espaços nas pontas
+    private static String normalizar(String texto) {
+        return texto == null ? "" : texto.trim().toLowerCase();
     }
 }

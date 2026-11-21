@@ -9,6 +9,8 @@ import java.time.LocalDate;
  * Aluno: Tiago Cunha (54272)
  */
 public class Filme implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
     
     private String titulo;
     private String realizador;
